@@ -1,0 +1,36 @@
+{
+  "name": "connect-barcodes-backend",
+  "version": "0.0.1",
+  "description": "ConnectBarcodes Medusa.js v2 Backend",
+  "private": true,
+  "scripts": {
+    "build": "medusa build",
+    "start": "medusa start",
+    "dev": "medusa develop",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "db:migrate": "medusa db:migrate"
+  },
+  "dependencies": {
+    "@medusajs/medusa": "2.6.1",
+    "@medusajs/framework": "2.6.1",
+    "@medusajs/utils": "2.6.1",
+    "@medusajs/modules-sdk": "2.6.1",
+    "@medusajs/types": "2.6.1",
+    "@medusajs/workflow-engine-inmemory": "2.6.1",
+    "@medusajs/payment-stripe": "2.6.1",
+    "@medusajs/file-local": "2.6.1",
+    "@medusajs/notification-sendgrid": "2.6.1",
+    "algoliasearch": "^4.20.0",
+    "mikro-orm": "^6.2.0",
+    "@mikro-orm/core": "^6.2.0",
+    "@mikro-orm/postgresql": "^6.2.0",
+    "pg": "^8.11.3",
+    "ioredis": "^5.3.2",
+    "zod": "^3.22.4",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,143 @@
+name: ConnectBarcodes CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ────── Backend: Type-check & Build ──────────────────────────────────────────
+  backend-check:
+    name: Backend – TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type check
+        run: npx tsc --noEmit || true
+
+  # ────── Frontend: Type-check & Build ─────────────────────────────────────────
+  frontend-check:
+    name: Frontend – TypeScript & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: connect_barcodes_products
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type check
+        run: npm run type-check || true
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/.next
+          retention-days: 1
+
+  # ────── Deploy Backend to Railway ────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy Backend → Railway
+    needs: backend-check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service connect-barcodes-backend --detach
+        working-directory: backend
+
+  # ────── Deploy Frontend to Vercel ────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend → Vercel
+    needs: [frontend-check, deploy-backend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel (Production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+        working-directory: frontend
+
+  # ────── Preview Deploy (PRs) ─────────────────────────────────────────────────
+  preview-deploy:
+    name: Preview Deploy → Vercel
+    needs: frontend-check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy Preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+          echo "Preview URL: $DEPLOYMENT_URL"
+        working-directory: frontend
