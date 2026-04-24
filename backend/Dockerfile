@@ -14,4 +14,4 @@ RUN npx medusa build
 
 EXPOSE 9000
 
-CMD ["node", ".medusa/server/index.js"]
+CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
