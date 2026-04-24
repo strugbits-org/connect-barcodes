@@ -1,8 +1,6 @@
 [build]
-builder = "nixpacks"
-
-[build.nixpacks]
-buildCommand = "npm ci --prefer-offline && npx medusa build"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "node .medusa/server/index.js"
