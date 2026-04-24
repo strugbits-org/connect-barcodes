@@ -3,5 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+startCommand = "npx medusa start"
 healthcheckPath = "/health"
 healthcheckTimeout = 300

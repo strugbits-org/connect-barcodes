@@ -14,4 +14,4 @@ RUN npx medusa build
 
 EXPOSE 9000
 
-CMD ["sh", "-c", "ls -la /app/.medusa/ && ls -la /app/.medusa/server/ 2>/dev/null || echo 'no server dir' && npx medusa start"]
+CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]

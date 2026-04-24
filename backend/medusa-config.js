@@ -1,3 +1,4 @@
+// cache-bust-v3
 const { loadEnv, defineConfig } = require("@medusajs/framework/utils")
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
