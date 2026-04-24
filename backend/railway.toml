@@ -2,11 +2,9 @@
 builder = "nixpacks"
 
 [build.nixpacks]
-buildCommand = "npm install --prefer-offline && npx medusa build"
+buildCommand = "npm ci --prefer-offline && npx medusa build"
 
 [deploy]
-startCommand = "npx medusa start"
+startCommand = "node .medusa/server/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
