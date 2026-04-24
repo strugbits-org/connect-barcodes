@@ -4,9 +4,9 @@ WORKDIR /app
 
 RUN apk add --no-cache python3 make g++
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 
-RUN npm ci --prefer-offline --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 COPY . .
 
