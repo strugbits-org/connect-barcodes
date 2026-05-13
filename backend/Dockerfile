@@ -10,10 +10,6 @@ RUN npm install --no-audit --no-fund
 
 COPY . .
 
-# build-v2
-RUN echo "Starting medusa build..."
-RUN NODE_OPTIONS="--max-old-space-size=6144" npx medusa build
-
 EXPOSE 9000
 
-CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+CMD ["sh", "-c", "NODE_OPTIONS='--max-old-space-size=6144' npx medusa build && npx medusa db:migrate && npx medusa start"]
