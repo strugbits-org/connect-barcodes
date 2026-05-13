@@ -10,6 +10,8 @@ RUN npm install --no-audit --no-fund
 
 COPY . .
 
+RUN chmod +x /app/start.sh
+
 EXPOSE 9000
 
-CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+CMD ["/app/start.sh"]
