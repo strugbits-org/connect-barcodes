@@ -11,7 +11,7 @@ RUN npm install --no-audit --no-fund
 COPY . .
 
 RUN echo "Starting medusa build..."
-RUN NODE_OPTIONS="--max-old-space-size=4096" npx medusa build
+RUN NODE_OPTIONS="--max-old-space-size=6144" npx medusa build
 
 EXPOSE 9000
 
