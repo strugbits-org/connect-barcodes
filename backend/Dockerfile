@@ -14,6 +14,8 @@ RUN sed -i 's/\r//' /app/start.sh && chmod +x /app/start.sh
 
 RUN NODE_OPTIONS="--max-old-space-size=6144" npx medusa build
 
+RUN cp /app/medusa-config.js /app/.medusa/server/medusa-config.js
+
 WORKDIR /app/.medusa/server
 RUN npm install --no-audit --no-fund
 
