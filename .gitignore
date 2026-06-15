@@ -11,10 +11,7 @@ out/
 build/
 
 # Environment files - NEVER commit real secrets
-.env
-.env.local
 .env.*.local
-.env.production
 
 # Keep template files
 !.env.example
@@ -55,3 +52,4 @@ coverage/
 .turbo/
 uploads/
 static/uploads/
+config.bat
