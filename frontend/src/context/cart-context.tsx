@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { Cart, CartItem } from "@/types";
-import { getCart, createCart, addToCart, updateCartItem, removeCartItem } from "@/lib/medusa";
+import { getCart, createCart, addToCart, updateCartItem, removeCartItem, getRegions } from "@/lib/medusa";
 import toast from "react-hot-toast";
 
 type CartContextType = {
@@ -40,7 +40,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const ensureCart = async (): Promise<string> => {
     if (cartId) return cartId;
-    const data = await createCart();
+    const regionsData = await getRegions();
+    const regionId = (regionsData as any)?.regions?.[0]?.id;
+    const data = await createCart(regionId);
     if (!data?.cart) throw new Error("Failed to create cart");
     const id = data.cart.id;
     setCartId(id);
