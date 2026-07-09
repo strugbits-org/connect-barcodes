@@ -11,7 +11,9 @@ out/
 build/
 
 # Environment files - NEVER commit real secrets
-.env.*.local
+.env
+.env.*
+/env
 
 # Keep template files
 !.env.example
