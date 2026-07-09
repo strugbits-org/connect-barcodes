@@ -99,7 +99,7 @@ export default async function ProductsPage({ searchParams }: Props) {
           </aside>
 
           {/* Products grid */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {q && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
                 Showing results for: <strong>"{q}"</strong>
