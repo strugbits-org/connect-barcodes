@@ -19,8 +19,15 @@ export type ProductVariant = {
   title: string;
   sku?: string | null;
   prices?: VariantPrice[];
+  calculated_price?: CalculatedPrice | null;
   tier_price?: number | null;
   tier?: CustomerTier;
+};
+
+export type CalculatedPrice = {
+  calculated_amount?: number | null;
+  original_amount?: number | null;
+  currency_code?: string | null;
 };
 
 export type VariantPrice = {

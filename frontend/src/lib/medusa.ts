@@ -10,6 +10,26 @@ export const medusa = new Medusa({
   auth: { type: "session" },
 });
 
+// Fields needed for the storefront, including per-region calculated prices.
+// Without a region_id + calculated_price, the store API returns no price and
+// the UI shows $0.00.
+const PRODUCT_FIELDS =
+  "id,title,handle,thumbnail,description,status,metadata,variants.id,variants.title,variants.sku,*variants.calculated_price";
+
+// The store needs a region to calculate prices. Cache the default region id
+// so we don't refetch it on every product query.
+let cachedRegionId: string | null | undefined;
+async function getDefaultRegionId(): Promise<string | undefined> {
+  if (cachedRegionId !== undefined) return cachedRegionId ?? undefined;
+  try {
+    const { regions } = await medusa.store.region.list();
+    cachedRegionId = regions?.[0]?.id ?? null;
+  } catch {
+    cachedRegionId = null;
+  }
+  return cachedRegionId ?? undefined;
+}
+
 export async function getProducts(params?: {
   limit?: number;
   offset?: number;
@@ -18,9 +38,12 @@ export async function getProducts(params?: {
   customer_id?: string;
 }) {
   try {
+    const region_id = await getDefaultRegionId();
     const response = await medusa.store.product.list({
       limit: params?.limit ?? 12,
       offset: params?.offset ?? 0,
+      fields: PRODUCT_FIELDS,
+      ...(region_id && { region_id }),
       ...(params?.category_handle && { category_handle: params.category_handle }),
       ...(params?.q && { q: params.q }),
     });
@@ -33,7 +56,11 @@ export async function getProducts(params?: {
 
 export async function getProduct(id: string) {
   try {
-    const response = await medusa.store.product.retrieve(id);
+    const region_id = await getDefaultRegionId();
+    const response = await medusa.store.product.retrieve(id, {
+      fields: PRODUCT_FIELDS,
+      ...(region_id && { region_id }),
+    });
     return response;
   } catch (error) {
     console.error("Error fetching product:", error);
@@ -43,7 +70,12 @@ export async function getProduct(id: string) {
 
 export async function getProductByHandle(handle: string) {
   try {
-    const response = await medusa.store.product.list({ handle });
+    const region_id = await getDefaultRegionId();
+    const response = await medusa.store.product.list({
+      handle,
+      fields: PRODUCT_FIELDS,
+      ...(region_id && { region_id }),
+    });
     return response.products?.[0] ?? null;
   } catch (error) {
     console.error("Error fetching product by handle:", error);
