@@ -1,4 +1,8 @@
-name: ConnectBarcodes CI/CD
+name: ConnectBarcodes CI
+
+# Pre-merge safety net: type-check the backend and type-check + build the
+# frontend. Deployment is handled by Vercel's and Railway's native Git
+# integrations (not this workflow), so there are no deploy jobs here.
 
 on:
   push:
@@ -10,13 +14,10 @@ env:
   NODE_VERSION: "20"
 
 jobs:
-  # ────── Backend: Type-check & Build ──────────────────────────────────────────
+  # ────── Backend: Type-check ──────────────────────────────────────────────────
   backend-check:
     name: Backend – TypeScript Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
@@ -25,21 +26,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          # Single root lockfile — this is an npm workspaces monorepo.
+          cache-dependency-path: package-lock.json
 
+      # Install the whole workspace from the root lockfile.
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      # Non-blocking: Medusa's generated types can trip standalone tsc, and the
+      # backend is deployed via `medusa build` on Railway. We surface type
+      # output without failing the gate.
       - name: Type check
         run: npx tsc --noEmit || true
+        working-directory: backend
 
   # ────── Frontend: Type-check & Build ─────────────────────────────────────────
   frontend-check:
     name: Frontend – TypeScript & Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
@@ -58,86 +62,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      # Real gates: both must pass for the check to be green.
       - name: Type check
-        run: npm run type-check || true
+        run: npm run type-check
+        working-directory: frontend
 
       - name: Build
         run: npm run build
-
-      - name: Upload build artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next
-          retention-days: 1
-
-  # ────── Deploy Backend to Railway ────────────────────────────────────────────
-  deploy-backend:
-    name: Deploy Backend → Railway
-    needs: backend-check
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service connect-barcodes-backend --detach
-        working-directory: backend
-
-  # ────── Deploy Frontend to Vercel ────────────────────────────────────────────
-  deploy-frontend:
-    name: Deploy Frontend → Vercel
-    needs: [frontend-check, deploy-backend]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy to Vercel (Production)
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-          vercel build --prod --token=$VERCEL_TOKEN
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
-        working-directory: frontend
-
-  # ────── Preview Deploy (PRs) ─────────────────────────────────────────────────
-  preview-deploy:
-    name: Preview Deploy → Vercel
-    needs: frontend-check
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy Preview
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
-          vercel build --token=$VERCEL_TOKEN
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
-          echo "Preview URL: $DEPLOYMENT_URL"
         working-directory: frontend
