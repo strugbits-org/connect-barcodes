@@ -22,7 +22,12 @@ const TIER_COLORS: Record<CustomerTier, string> = {
 export default function ProductCard({ product, tier = "standard" }: Props) {
   const { addItem, isLoading } = useCart();
   const firstVariant = product.variants?.[0];
-  const basePrice = firstVariant?.prices?.[0]?.amount ?? 0;
+  // Store API returns per-region pricing under calculated_price; fall back to
+  // the static `prices` shape used by build-time fallback products.
+  const basePrice =
+    firstVariant?.calculated_price?.calculated_amount ??
+    firstVariant?.prices?.[0]?.amount ??
+    0;
   const tierPrice = firstVariant?.tier_price ?? basePrice;
   const hasDiscount = tier !== "standard" && tierPrice < basePrice;
   const brand = product.metadata?.brand as string | undefined;

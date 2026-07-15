@@ -37,7 +37,10 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
 
   const firstVariant = product.variants?.[0];
-  const basePrice = firstVariant?.prices?.[0]?.amount ?? 0;
+  const basePrice =
+    firstVariant?.calculated_price?.calculated_amount ??
+    firstVariant?.prices?.[0]?.amount ??
+    0;
   const brand = product.metadata?.brand as string | undefined;
   const sku = product.metadata?.sku as string | undefined;
 
