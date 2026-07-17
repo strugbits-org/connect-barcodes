@@ -24,11 +24,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartId, setCartId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const createNewCart = useCallback(async (): Promise<string> => {
+    const regionsData = await getRegions();
+    const regionId = (regionsData as any)?.regions?.[0]?.id;
+    const data = await createCart(regionId);
+    if (!data?.cart) throw new Error("Failed to create cart");
+    const id = data.cart.id;
+    setCartId(id);
+    setCart(data.cart as Cart);
+    localStorage.setItem("cb_cart_id", id);
+    return id;
+  }, []);
+
   const refreshCart = useCallback(async () => {
     const storedId = localStorage.getItem("cb_cart_id");
     if (!storedId) return;
     const data = await getCart(storedId);
-    if (data?.cart) setCart(data.cart as Cart);
+    if (data?.cart) {
+      setCart(data.cart as Cart);
+    } else {
+      // Stored cart no longer exists (expired/deleted) — drop the stale id.
+      localStorage.removeItem("cb_cart_id");
+      setCartId(null);
+      setCart(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -41,25 +60,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const ensureCart = async (): Promise<string> => {
     if (cartId) return cartId;
-    const regionsData = await getRegions();
-    const regionId = (regionsData as any)?.regions?.[0]?.id;
-    const data = await createCart(regionId);
-    if (!data?.cart) throw new Error("Failed to create cart");
-    const id = data.cart.id;
-    setCartId(id);
-    setCart(data.cart as Cart);
-    localStorage.setItem("cb_cart_id", id);
-    return id;
+    return createNewCart();
   };
 
   const addItem = async (variantId: string, quantity = 1) => {
     setIsLoading(true);
     try {
-      const id = await ensureCart();
-      const data = await addToCart(id, variantId, quantity);
+      let id = await ensureCart();
+      let data = await addToCart(id, variantId, quantity);
+      if (!data?.cart) {
+        // Cart may be stale/deleted — reset and retry once with a fresh cart.
+        localStorage.removeItem("cb_cart_id");
+        setCartId(null);
+        id = await createNewCart();
+        data = await addToCart(id, variantId, quantity);
+      }
       if (data?.cart) {
         setCart(data.cart as Cart);
         toast.success("Added to cart!");
+      } else {
+        toast.error("Failed to add to cart");
       }
     } catch {
       toast.error("Failed to add to cart");
