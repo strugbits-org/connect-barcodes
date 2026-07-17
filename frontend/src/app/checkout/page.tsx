@@ -33,6 +33,23 @@ function extractClientSecret(pc: any): string | null {
   return stripe?.data?.client_secret ?? null;
 }
 
+// Module-scope so its identity is stable across InfoStep re-renders — a
+// component defined inside the parent would remount on every keystroke and
+// steal focus from the input.
+function TextField({ name, label, type = "text", value, onChange, required = true }: {
+  name: keyof Info; label: string; type?: string; value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; required?: boolean;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input type={type} name={name} value={value} onChange={onChange} required={required} className="input-field" />
+    </div>
+  );
+}
+
 // ── Step 1: contact + shipping address ───────────────────────────────────────
 function InfoStep({ onReady }: { onReady: (clientSecret: string) => void }) {
   const { cartId, refreshCart } = useCart();
@@ -79,31 +96,24 @@ function InfoStep({ onReady }: { onReady: (clientSecret: string) => void }) {
     }
   };
 
-  const Field = ({ name, label, type = "text" }: { name: keyof Info; label: string; type?: string }) => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">{label}</label>
-      <input type={type} name={name} value={form[name]} onChange={handleChange} required className="input-field" />
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-brand-navy mb-4">Contact Information</h2>
-        <Field name="email" label="Email address" type="email" />
+        <TextField name="email" label="Email address" type="email" value={form.email} onChange={handleChange} />
       </div>
       <div>
         <h2 className="text-lg font-bold text-brand-navy mb-4">Shipping Address</h2>
         <div className="grid grid-cols-2 gap-4">
-          <Field name="firstName" label="First name" />
-          <Field name="lastName" label="Last name" />
+          <TextField name="firstName" label="First name" value={form.firstName} onChange={handleChange} />
+          <TextField name="lastName" label="Last name" value={form.lastName} onChange={handleChange} />
         </div>
         <div className="mt-4 space-y-4">
-          <Field name="address" label="Street address" />
+          <TextField name="address" label="Street address" value={form.address} onChange={handleChange} />
           <div className="grid grid-cols-3 gap-4">
-            <Field name="city" label="City" />
-            <Field name="state" label="State" />
-            <Field name="zip" label="ZIP code" />
+            <TextField name="city" label="City" value={form.city} onChange={handleChange} />
+            <TextField name="state" label="State" value={form.state} onChange={handleChange} />
+            <TextField name="zip" label="ZIP code" value={form.zip} onChange={handleChange} />
           </div>
         </div>
       </div>
@@ -198,7 +208,7 @@ export default function CheckoutPage() {
                 <div className="space-y-3 mb-4">
                   {(cart?.items ?? []).map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{item.title} × {item.quantity}</span>
+                      <span className="text-gray-600">{item.product_title ?? item.title} × {item.quantity}</span>
                       <span className="font-medium">{formatPrice(item.unit_price * item.quantity)}</span>
                     </div>
                   ))}
