@@ -1,29 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ShoppingCart, Search, Phone, Mail, ChevronDown, Menu, X, User,
-  Tag, Package, Printer, Smartphone, Monitor, Settings, Layers
+  ShoppingCart, Search, Phone, Mail, Menu, X, User, Tag, Package, ChevronDown
 } from "lucide-react";
 import { useCart } from "@/context/cart-context";
 import { cn } from "@/lib/utils";
+import { getCategories } from "@/lib/medusa";
 
-const CATEGORIES = [
-  { name: "Barcode Scanners", handle: "barcode-scanners", icon: Search },
-  { name: "Label Printers", handle: "label-printers", icon: Printer },
-  { name: "Receipt Printers", handle: "receipt-printers", icon: Layers },
-  { name: "Mobile Computers", handle: "mobile-computers", icon: Smartphone },
-  { name: "POS Systems", handle: "pos-systems", icon: Monitor },
-  { name: "Supplies & Media", handle: "supplies-media", icon: Tag },
-  { name: "Accessories", handle: "accessories", icon: Settings },
-];
+type NavCategory = { name: string; handle: string };
 
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [categories, setCategories] = useState<NavCategory[]>([]);
   const { itemCount } = useCart();
   const router = useRouter();
 
@@ -31,6 +24,13 @@ export default function Navbar() {
     const handler = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  // Load real categories so nav links match the backend (handles were hardcoded).
+  useEffect(() => {
+    getCategories().then((d: any) =>
+      setCategories(((d?.product_categories ?? []) as any[]).map((c) => ({ name: c.name, handle: c.handle })))
+    );
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -113,21 +113,7 @@ export default function Navbar() {
         {/* Category navigation */}
         <div className="border-t border-white/10 hidden md:block">
           <div className="max-w-7xl mx-auto px-4">
-            <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-              {CATEGORIES.map(({ name, handle, icon: Icon }) => (
-                <Link
-                  key={handle}
-                  href={`/products?category=${handle}`}
-                  className="flex items-center gap-1.5 text-white/80 hover:text-white hover:bg-white/10 px-3 py-2.5 rounded transition-all text-sm whitespace-nowrap flex-shrink-0"
-                >
-                  <Icon size={14} />
-                  {name}
-                </Link>
-              ))}
-              <Link href="/products" className="flex items-center gap-1.5 text-brand-orange hover:text-orange-400 ml-auto px-3 py-2.5 text-sm font-medium whitespace-nowrap flex-shrink-0">
-                View All Products →
-              </Link>
-            </nav>
+            <CategoryNav categories={categories} />
           </div>
         </div>
       </div>
@@ -136,14 +122,14 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="md:hidden bg-brand-navy-dark border-t border-white/10 animate-fade-in">
           <div className="p-4 space-y-1">
-            {CATEGORIES.map(({ name, handle, icon: Icon }) => (
+            {categories.map(({ name, handle }) => (
               <Link
                 key={handle}
                 href={`/products?category=${handle}`}
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-3 text-white/80 hover:text-white hover:bg-white/10 px-3 py-2.5 rounded-lg transition-all"
               >
-                <Icon size={16} />
+                <Tag size={16} />
                 {name}
               </Link>
             ))}
@@ -158,5 +144,101 @@ export default function Navbar() {
         </div>
       )}
     </header>
+  );
+}
+
+const ITEM_CLASS =
+  "flex items-center gap-1.5 text-white/80 hover:text-white hover:bg-white/10 px-3 py-2.5 rounded transition-all text-sm whitespace-nowrap flex-shrink-0";
+
+// Priority+ category nav: shows the categories that fit and collapses the rest
+// into a "More" dropdown; recalculates on container resize.
+function CategoryNav({ categories }: { categories: NavCategory[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(categories.length);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Measure how many items fit; reserve room for the "More" button + "View All".
+  useEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+    const RESERVE = 250; // px for "More ▾" + "View All Products →"
+    const GAP = 4;
+    const compute = () => {
+      const items = Array.from(measure.children) as HTMLElement[];
+      const available = container.clientWidth - RESERVE;
+      let used = 0;
+      let count = 0;
+      for (const item of items) {
+        used += item.offsetWidth + GAP;
+        if (used > available) break;
+        count++;
+      }
+      setVisibleCount(count);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [categories]);
+
+  // Close the dropdown on outside click.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
+
+  const visible = categories.slice(0, visibleCount);
+  const overflow = categories.slice(visibleCount);
+
+  return (
+    <div ref={containerRef} className="flex items-center gap-1 relative">
+      {/* Hidden full-width row used only to measure natural item widths */}
+      <div ref={measureRef} aria-hidden className="absolute -left-[9999px] top-0 flex items-center gap-1 pointer-events-none invisible">
+        {categories.map((c) => (
+          <span key={c.handle} className={ITEM_CLASS}><Tag size={14} />{c.name}</span>
+        ))}
+      </div>
+
+      {visible.map(({ name, handle }) => (
+        <Link key={handle} href={`/products?category=${handle}`} className={ITEM_CLASS}>
+          <Tag size={14} />
+          {name}
+        </Link>
+      ))}
+
+      {overflow.length > 0 && (
+        <div ref={moreRef} className="relative flex-shrink-0">
+          <button type="button" onClick={() => setMoreOpen((v) => !v)} className={ITEM_CLASS} aria-expanded={moreOpen}>
+            More <ChevronDown size={14} className={`transition-transform ${moreOpen ? "rotate-180" : ""}`} />
+          </button>
+          {moreOpen && (
+            <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl py-1 min-w-[210px] z-50">
+              {overflow.map(({ name, handle }) => (
+                <Link
+                  key={handle}
+                  href={`/products?category=${handle}`}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                >
+                  <Tag size={14} className="text-gray-400" />
+                  {name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Link href="/products" className="flex items-center gap-1.5 text-brand-orange hover:text-orange-400 ml-auto px-3 py-2.5 text-sm font-medium whitespace-nowrap flex-shrink-0">
+        View All Products →
+      </Link>
+    </div>
   );
 }

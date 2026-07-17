@@ -33,7 +33,8 @@ async function getDefaultRegionId(): Promise<string | undefined> {
 export async function getProducts(params?: {
   limit?: number;
   offset?: number;
-  category_handle?: string[];
+  category_id?: string[];
+  collection_id?: string[];
   q?: string;
   customer_id?: string;
 }) {
@@ -44,7 +45,10 @@ export async function getProducts(params?: {
       offset: params?.offset ?? 0,
       fields: PRODUCT_FIELDS,
       ...(region_id && { region_id }),
-      ...(params?.category_handle && { category_handle: params.category_handle }),
+      // Store API filters by category_id (category_handle is unsupported and errors).
+      ...(params?.category_id && { category_id: params.category_id }),
+      // Brands are modeled as collections (metadata isn't filterable by the store API).
+      ...(params?.collection_id && { collection_id: params.collection_id }),
       ...(params?.q && { q: params.q }),
     });
     return response;
@@ -90,6 +94,16 @@ export async function getCategories() {
   } catch (error) {
     console.error("Error fetching categories:", error);
     return { product_categories: [] };
+  }
+}
+
+// Brands are modeled as collections.
+export async function getCollections() {
+  try {
+    return await medusa.store.collection.list({ limit: 100, fields: "id,title,handle" } as any);
+  } catch (error) {
+    console.error("Error fetching collections:", error);
+    return { collections: [] };
   }
 }
 
@@ -214,4 +228,76 @@ export async function submitQuote(data: {
     body: JSON.stringify(data),
   });
   return res.json();
+}
+
+// ── Customer auth / orders ───────────────────────────────────────────────────
+export async function registerCustomer(data: {
+  email: string; password: string; first_name?: string; last_name?: string;
+}) {
+  const creds = { email: data.email, password: data.password };
+  const customerBody = { email: data.email, first_name: data.first_name, last_name: data.last_name };
+
+  try {
+    // Happy path: create the auth identity, then the linked customer record.
+    await medusa.auth.register("customer", "emailpass", creds);
+    await medusa.store.customer.create(customerBody);
+  } catch (err: any) {
+    if (!/already exists/i.test(String(err?.message ?? ""))) throw err;
+
+    // The auth identity already exists (guest checkout, or a half-finished
+    // attempt that created the identity but never linked a customer). We can't
+    // recover through the SDK's session login — an unlinked identity has no
+    // customer actor, so the session step 401s. Instead, get a raw token and
+    // link a customer to the identity directly, then log in normally.
+    const authRes = await fetch(`${BACKEND_URL}/auth/customer/emailpass`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(creds),
+    });
+    if (!authRes.ok) {
+      throw new Error("This email is already registered. Please sign in instead.");
+    }
+    const { token } = await authRes.json();
+
+    // Create + link the customer (ignore if it's already linked).
+    await fetch(`${BACKEND_URL}/store/customers`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "x-publishable-api-key": PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify(customerBody),
+    });
+  }
+
+  // Establish a clean, linked session.
+  await medusa.auth.login("customer", "emailpass", creds);
+}
+
+export async function loginCustomer(email: string, password: string) {
+  return await medusa.auth.login("customer", "emailpass", { email, password });
+}
+
+export async function logoutCustomer() {
+  try { await medusa.auth.logout(); } catch { /* ignore */ }
+}
+
+export async function getCustomer() {
+  try {
+    const { customer } = await medusa.store.customer.retrieve();
+    return customer ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listOrders() {
+  try {
+    const { orders } = await medusa.store.order.list({ limit: 50, order: "-created_at" } as any);
+    return orders ?? [];
+  } catch (error) {
+    console.error("Error listing orders:", error);
+    return [];
+  }
 }

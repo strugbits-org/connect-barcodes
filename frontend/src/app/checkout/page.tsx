@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,6 +13,7 @@ import {
   addShippingMethod,
   initiatePaymentSession,
   completeCart,
+  getCustomer,
 } from "@/lib/medusa";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -36,16 +37,19 @@ function extractClientSecret(pc: any): string | null {
 // Module-scope so its identity is stable across InfoStep re-renders — a
 // component defined inside the parent would remount on every keystroke and
 // steal focus from the input.
-function TextField({ name, label, type = "text", value, onChange, required = true }: {
+function TextField({ name, label, type = "text", value, onChange, required = true, disabled = false }: {
   name: keyof Info; label: string; type?: string; value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; required?: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; required?: boolean; disabled?: boolean;
 }) {
   return (
     <div>
       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
-      <input type={type} name={name} value={value} onChange={onChange} required={required} className="input-field" />
+      <input
+        type={type} name={name} value={value} onChange={onChange} required={required} disabled={disabled}
+        className={`input-field ${disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+      />
     </div>
   );
 }
@@ -54,10 +58,25 @@ function TextField({ name, label, type = "text", value, onChange, required = tru
 function InfoStep({ onReady }: { onReady: (clientSecret: string) => void }) {
   const { cartId, refreshCart } = useCart();
   const [submitting, setSubmitting] = useState(false);
+  const [emailLocked, setEmailLocked] = useState(false);
   const [form, setForm] = useState<Info>({
     email: "", firstName: "", lastName: "",
     address: "", city: "", state: "", zip: "", country: "US",
   });
+
+  // If the customer is logged in, prefill (and lock) their email + name.
+  useEffect(() => {
+    getCustomer().then((c: any) => {
+      if (!c?.email) return;
+      setEmailLocked(true);
+      setForm((prev) => ({
+        ...prev,
+        email: c.email,
+        firstName: prev.firstName || c.first_name || "",
+        lastName: prev.lastName || c.last_name || "",
+      }));
+    });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -100,7 +119,7 @@ function InfoStep({ onReady }: { onReady: (clientSecret: string) => void }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-brand-navy mb-4">Contact Information</h2>
-        <TextField name="email" label="Email address" type="email" value={form.email} onChange={handleChange} />
+        <TextField name="email" label="Email address" type="email" value={form.email} onChange={handleChange} disabled={emailLocked} />
       </div>
       <div>
         <h2 className="text-lg font-bold text-brand-navy mb-4">Shipping Address</h2>
@@ -143,9 +162,10 @@ function PaymentStep() {
 
       const res: any = await completeCart(cartId);
       if (res?.type === "order" && res.order) {
+        try { sessionStorage.setItem("cb_last_order", JSON.stringify(res.order)); } catch { /* ignore */ }
         clearCart();
         toast.success("Order placed!");
-        router.push(`/account?order=${res.order.id}`);
+        router.push(`/checkout/success?order=${res.order.id}`);
       } else {
         toast.error(res?.error?.message ?? "Payment went through but the order could not be finalized. Please contact support.");
       }

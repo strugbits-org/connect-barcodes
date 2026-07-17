@@ -57,3 +57,14 @@ body {
   .badge-tier2 { @apply badge-tier bg-purple-100 text-purple-700; }
   .badge-tier3 { @apply badge-tier bg-amber-100 text-amber-700; }
 }
+
+@layer utilities {
+  /* Hide the horizontal scrollbar on scrollable rows (e.g. the category nav). */
+  .scrollbar-none {
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;    /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;            /* Chrome/Safari */
+  }
+}
