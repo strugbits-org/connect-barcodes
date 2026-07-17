@@ -14,6 +14,7 @@ type CartContextType = {
   updateItem: (lineId: string, quantity: number) => Promise<void>;
   removeItem: (lineId: string) => Promise<void>;
   refreshCart: () => Promise<void>;
+  clearCart: () => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -90,10 +91,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearCart = useCallback(() => {
+    localStorage.removeItem("cb_cart_id");
+    setCartId(null);
+    setCart(null);
+  }, []);
+
   const itemCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) ?? 0;
 
   return (
-    <CartContext.Provider value={{ cart, cartId, isLoading, itemCount, addItem, updateItem, removeItem, refreshCart }}>
+    <CartContext.Provider value={{ cart, cartId, isLoading, itemCount, addItem, updateItem, removeItem, refreshCart, clearCart }}>
       {children}
     </CartContext.Provider>
   );

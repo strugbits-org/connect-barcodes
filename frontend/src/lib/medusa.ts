@@ -145,15 +145,48 @@ export async function removeCartItem(cartId: string, lineId: string) {
   }
 }
 
-export async function createPaymentSession(cartId: string) {
+export async function updateCart(cartId: string, data: Record<string, any>) {
   try {
-    const response = await medusa.store.payment.initiatePaymentSession(
-      { id: cartId } as any,
-      { provider_id: "pp_stripe_stripe" }
-    );
-    return response;
+    return await medusa.store.cart.update(cartId, data as any);
   } catch (error) {
-    console.error("Error creating payment session:", error);
+    console.error("Error updating cart:", error);
+    return null;
+  }
+}
+
+export async function listCartShippingOptions(cartId: string) {
+  try {
+    const response = await medusa.store.fulfillment.listCartOptions({ cart_id: cartId });
+    return response.shipping_options ?? [];
+  } catch (error) {
+    console.error("Error listing shipping options:", error);
+    return [];
+  }
+}
+
+export async function addShippingMethod(cartId: string, optionId: string) {
+  try {
+    return await medusa.store.cart.addShippingMethod(cartId, { option_id: optionId });
+  } catch (error) {
+    console.error("Error adding shipping method:", error);
+    return null;
+  }
+}
+
+export async function initiatePaymentSession(cart: any, providerId = "pp_stripe_stripe") {
+  try {
+    return await medusa.store.payment.initiatePaymentSession(cart, { provider_id: providerId });
+  } catch (error) {
+    console.error("Error initiating payment session:", error);
+    return null;
+  }
+}
+
+export async function completeCart(cartId: string) {
+  try {
+    return await medusa.store.cart.complete(cartId);
+  } catch (error) {
+    console.error("Error completing cart:", error);
     return null;
   }
 }
