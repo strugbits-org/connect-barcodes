@@ -53,6 +53,7 @@ export type CartItem = {
   variant_id: string;
   unit_price: number;
   title: string;
+  product_title?: string | null;
   thumbnail?: string | null;
   variant?: {
     title: string;

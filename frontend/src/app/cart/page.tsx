@@ -54,9 +54,11 @@ export default function CartPage() {
 
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
-                    {item.variant?.product?.title ?? item.title}
+                    {item.product_title ?? item.variant?.product?.title ?? item.title}
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3">{item.variant?.title}</p>
+                  {item.variant?.title && item.variant.title !== "Default" && (
+                    <p className="text-xs text-gray-400 mb-3">{item.variant.title}</p>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
