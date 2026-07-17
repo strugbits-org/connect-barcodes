@@ -9,6 +9,11 @@ import Link from "next/link";
 
 export const metadata: Metadata = { title: "All Products", description: "Browse our full catalog of barcode scanners, label printers, and POS systems." };
 
+// Always render fresh so category/brand lists and products reflect admin changes
+// immediately (otherwise Next's data cache can serve a stale/empty filter list
+// until the next deploy).
+export const dynamic = "force-dynamic";
+
 // Compact page list: first, last, current ±1, with "…" gaps.
 function pageItems(current: number, total: number): (number | "dots")[] {
   const set = new Set<number>([1, total]);
