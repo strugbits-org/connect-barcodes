@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -49,6 +49,14 @@ function buildInitialItems(searchParams: URLSearchParams): QuoteItem[] {
 }
 
 export default function QuotePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen"><Navbar /><div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-400">Loading...</div><Footer /></div>}>
+      <QuotePageInner />
+    </Suspense>
+  );
+}
+
+function QuotePageInner() {
   const searchParams = useSearchParams();
 
   const [submitted, setSubmitted] = useState(false);
