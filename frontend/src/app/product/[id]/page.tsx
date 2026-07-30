@@ -9,6 +9,10 @@ import { formatPrice } from "@/lib/utils";
 import { Package, Shield, Truck, Star, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
+// Always fetch fresh so product images/details reflect admin changes (avoids
+// serving a cached product with a stale/removed image).
+export const dynamic = "force-dynamic";
+
 type Props = { params: { id: string } };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -34,7 +38,7 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  if (!product) notFound();
+  if (!product || !product.title) notFound();
 
   const firstVariant = product.variants?.[0];
   const basePrice =
@@ -43,6 +47,7 @@ export default async function ProductPage({ params }: Props) {
     0;
   const brand = product.metadata?.brand as string | undefined;
   const sku = product.metadata?.sku as string | undefined;
+  const imageUrl = product.thumbnail ?? product.images?.[0]?.url;
 
   return (
     <div className="min-h-screen">
@@ -61,8 +66,8 @@ export default async function ProductPage({ params }: Props) {
         <div className="grid md:grid-cols-2 gap-10 mb-16">
           {/* Image */}
           <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
-            {product.thumbnail ? (
-              <Image src={product.thumbnail} alt={product.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" priority />
+            {imageUrl ? (
+              <Image src={imageUrl} alt={product.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" priority />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Package size={80} className="text-gray-200" />
@@ -108,7 +113,7 @@ export default async function ProductPage({ params }: Props) {
                   </div>
                 ))}
               </div>
-              <Link href="/quote" className="block text-center text-xs text-blue-600 hover:text-blue-700 mt-3 font-medium">
+              <Link href={`/quote?product=${encodeURIComponent(product.title)}`} className="block text-center text-xs text-blue-600 hover:text-blue-700 mt-3 font-medium">
                 Request a custom quote →
               </Link>
             </div>

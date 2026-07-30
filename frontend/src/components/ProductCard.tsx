@@ -31,6 +31,8 @@ export default function ProductCard({ product, tier = "standard" }: Props) {
   const tierPrice = firstVariant?.tier_price ?? basePrice;
   const hasDiscount = tier !== "standard" && tierPrice < basePrice;
   const brand = product.metadata?.brand as string | undefined;
+  // Fall back to the first uploaded image when no explicit thumbnail is set.
+  const imageUrl = product.thumbnail ?? product.images?.[0]?.url;
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -42,9 +44,9 @@ export default function ProductCard({ product, tier = "standard" }: Props) {
     <Link href={`/product/${product.handle || product.id}`} className="group card flex flex-col hover:-translate-y-0.5 transition-all duration-200">
       {/* Image */}
       <div className="relative aspect-square bg-gray-50 rounded-t-xl overflow-hidden">
-        {product.thumbnail ? (
+        {imageUrl ? (
           <Image
-            src={product.thumbnail}
+            src={imageUrl}
             alt={product.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

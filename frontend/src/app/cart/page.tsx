@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 import Link from "next/link";
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, FileText } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
 export default function CartPage() {
@@ -40,22 +40,45 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Items */}
           <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
+            {items.map((item) => {
+              const handle = (item as any).product_handle ?? (item as any).variant?.product?.handle;
+              const productId = (item as any).product_id ?? (item as any).variant?.product_id;
+              const productLink = handle ? `/product/${handle}` : productId ? `/product/${productId}` : null;
+              const thumb = item.variant?.product?.thumbnail;
+              return (
               <div key={item.id} className="card p-4 flex items-start gap-4">
-                <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
-                  {item.variant?.product?.thumbnail ? (
-                    <Image src={item.variant.product.thumbnail} alt={item.title} fill className="object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ShoppingBag size={24} className="text-gray-300" />
-                    </div>
-                  )}
-                </div>
+                {productLink ? (
+                  <Link href={productLink} className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 block hover:ring-2 hover:ring-brand-navy/20 transition-all">
+                    {thumb ? (
+                      <Image src={thumb} alt={item.title} fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag size={24} className="text-gray-300" />
+                      </div>
+                    )}
+                  </Link>
+                ) : (
+                  <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+                    {thumb ? (
+                      <Image src={thumb} alt={item.title} fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag size={24} className="text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
-                    {item.product_title ?? item.variant?.product?.title ?? item.title}
-                  </h3>
+                  {productLink ? (
+                    <Link href={productLink} className="font-semibold text-gray-900 text-sm mb-0.5 truncate block hover:text-brand-navy transition-colors">
+                      {item.product_title ?? item.variant?.product?.title ?? item.title}
+                    </Link>
+                  ) : (
+                    <h3 className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
+                      {item.product_title ?? item.variant?.product?.title ?? item.title}
+                    </h3>
+                  )}
                   {item.variant?.title && item.variant.title !== "Default" && (
                     <p className="text-xs text-gray-400 mb-3">{item.variant.title}</p>
                   )}
@@ -88,7 +111,8 @@ export default function CartPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Summary */}
@@ -115,6 +139,12 @@ export default function CartPage() {
 
               <Link href="/checkout" className="btn-primary w-full justify-center text-base py-3.5 mb-3">
                 Proceed to Checkout <ArrowRight size={16} />
+              </Link>
+              <Link
+                href={`/quote?${new URLSearchParams({ cart: JSON.stringify(items.map((i) => ({ id: (i as any).variant_id ?? "", name: i.product_title ?? i.variant?.product?.title ?? i.title, qty: i.quantity }))) })}`}
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl py-3 transition-colors mb-3"
+              >
+                <FileText size={16} /> Request Quote for These Items
               </Link>
               <Link href="/products" className="btn-secondary w-full justify-center">
                 Continue Shopping

@@ -14,7 +14,7 @@ export const medusa = new Medusa({
 // Without a region_id + calculated_price, the store API returns no price and
 // the UI shows $0.00.
 const PRODUCT_FIELDS =
-  "id,title,handle,thumbnail,description,status,metadata,variants.id,variants.title,variants.sku,*variants.calculated_price";
+  "id,title,handle,thumbnail,description,status,metadata,images.id,images.url,variants.id,variants.title,variants.sku,*variants.calculated_price";
 
 // The store needs a region to calculate prices. Cache the default region id
 // so we don't refetch it on every product query.
@@ -219,14 +219,31 @@ export async function submitQuote(data: {
   customer_email: string;
   company_name?: string;
   phone?: string;
-  items: Array<{ product_id: string; quantity: number; notes?: string }>;
+  items: Array<{ product_id: string; product_name?: string; quantity: number; notes?: string }>;
   message?: string;
 }) {
   const res = await fetch(`${BACKEND_URL}/store/quotes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+    },
     body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Quote submission failed");
+  }
+  return res.json();
+}
+
+export async function getQuotes(email?: string) {
+  const url = new URL(`${BACKEND_URL}/store/quotes`);
+  if (email) url.searchParams.set("email", email);
+  const res = await fetch(url.toString(), {
+    headers: { "x-publishable-api-key": PUBLISHABLE_KEY },
+  });
+  if (!res.ok) throw new Error("Failed to fetch quotes");
   return res.json();
 }
 
@@ -294,7 +311,7 @@ export async function getCustomer() {
 
 export async function listOrders() {
   try {
-    const { orders } = await medusa.store.order.list({ limit: 50, order: "-created_at" } as any);
+    const { orders } = await medusa.store.order.list({ limit: 50, order: "-created_at", fields: "+items.product_handle" } as any);
     return orders ?? [];
   } catch (error) {
     console.error("Error listing orders:", error);
