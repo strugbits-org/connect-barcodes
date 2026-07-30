@@ -5,6 +5,11 @@ const nextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "**.medusajs.com" },
       { protocol: "http", hostname: "localhost" },
+      // Product images uploaded via admin are served from the Medusa backend.
+      { protocol: "https", hostname: "**.railway.app" },
+      // S3 bucket for product media
+      { protocol: "https", hostname: "connect-barcodes-media.s3.us-east-1.amazonaws.com" },
+      { protocol: "https", hostname: "connect-barcodes-media.s3.amazonaws.com" },
     ],
   },
   env: {

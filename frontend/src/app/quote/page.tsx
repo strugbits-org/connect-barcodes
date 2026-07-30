@@ -1,38 +1,124 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { submitQuote } from "@/lib/medusa";
+import ProductAutocomplete, { SelectedProduct } from "@/components/ProductAutocomplete";
+import { submitQuote, getCustomer } from "@/lib/medusa";
+import { useCart } from "@/context/cart-context";
 import { CheckCircle, Plus, Trash2, Tag } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
-type QuoteItem = { product_id: string; quantity: number; notes: string };
+type QuoteItem = {
+  product: SelectedProduct | null;
+  quantity: number;
+  notes: string;
+};
+
+function buildInitialItems(searchParams: URLSearchParams): QuoteItem[] {
+  const cartParam = searchParams.get("cart");
+  if (cartParam) {
+    try {
+      const cartItems = JSON.parse(cartParam) as Array<{ id: string; name: string; qty: number }>;
+      if (cartItems.length) {
+        const merged = new Map<string, { id: string; name: string; qty: number }>();
+        for (const c of cartItems) {
+          const key = c.name;
+          const existing = merged.get(key);
+          if (existing) {
+            existing.qty += c.qty;
+          } else {
+            merged.set(key, { ...c });
+          }
+        }
+        return [...merged.values()].map((c) => ({
+          product: { id: c.id || "", title: c.name, sku: "" },
+          quantity: c.qty,
+          notes: "",
+        }));
+      }
+    } catch { /* fall through */ }
+  }
+  const productName = searchParams.get("product");
+  if (productName) {
+    return [{ product: { id: "", title: productName, sku: "" }, quantity: 1, notes: "" }];
+  }
+  return [{ product: null, quantity: 1, notes: "" }];
+}
 
 export default function QuotePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen"><Navbar /><div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-400">Loading...</div><Footer /></div>}>
+      <QuotePageInner />
+    </Suspense>
+  );
+}
+
+function QuotePageInner() {
+  const searchParams = useSearchParams();
+
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     customer_name: "", customer_email: "", company_name: "", phone: "", message: "",
   });
-  const [items, setItems] = useState<QuoteItem[]>([{ product_id: "", quantity: 1, notes: "" }]);
+  const [items, setItems] = useState<QuoteItem[]>(() => buildInitialItems(searchParams));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { clearCart } = useCart();
+  const cameFromCart = !!searchParams.get("cart");
+
+  useEffect(() => {
+    getCustomer().then((c) => {
+      if (!c) return;
+      setIsLoggedIn(true);
+      setFormData((prev) => ({
+        ...prev,
+        customer_name: [c.first_name, c.last_name].filter(Boolean).join(" ") || prev.customer_name,
+        customer_email: c.email || prev.customer_email,
+        company_name: (c as any).company_name || prev.company_name,
+        phone: (c as any).phone || prev.phone,
+      }));
+    });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
   };
 
-  const updateItem = (idx: number, field: keyof QuoteItem, value: string | number) => {
+  const setItemProduct = (idx: number, product: SelectedProduct | null) => {
+    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, product } : item)));
+  };
+
+  const setItemField = (idx: number, field: "quantity" | "notes", value: number | string) => {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
   };
 
-  const addItem = () => setItems((prev) => [...prev, { product_id: "", quantity: 1, notes: "" }]);
+  const addItem = () => setItems((prev) => [...prev, { product: null, quantity: 1, notes: "" }]);
   const removeItem = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  const validItems = items.filter((i) => i.product);
+  const canSubmit = formData.customer_name && formData.customer_email && validItems.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmit) {
+      toast.error("Please select at least one product.");
+      return;
+    }
     setLoading(true);
     try {
-      await submitQuote({ ...formData, items: items.filter((i) => i.product_id) });
+      await submitQuote({
+        ...formData,
+        items: validItems.map((i) => ({
+          product_id: i.product!.id || i.product!.title,
+          product_name: i.product!.title,
+          quantity: i.quantity,
+          notes: i.notes || undefined,
+        })),
+      });
+      if (cameFromCart) clearCart();
       setSubmitted(true);
       toast.success("Quote request submitted!");
     } catch {
@@ -52,7 +138,12 @@ export default function QuotePage() {
           <p className="text-gray-500 text-lg mb-8">
             Thank you! Our B2B team will review your request and respond within 1 business day.
           </p>
-          <button onClick={() => setSubmitted(false)} className="btn-secondary mr-4">Submit Another</button>
+          <div className="flex justify-center gap-4">
+            <button onClick={() => { setSubmitted(false); setItems([{ product: null, quantity: 1, notes: "" }]); setFormData((p) => ({ ...p, message: "" })); }} className="btn-secondary">
+              Submit Another
+            </button>
+            <Link href="/products" className="btn-primary">Browse Products</Link>
+          </div>
         </div>
         <Footer />
       </div>
@@ -92,7 +183,8 @@ export default function QuotePage() {
                       value={(formData as any)[name]}
                       onChange={handleChange}
                       required={label.includes("*")}
-                      className="input-field"
+                      disabled={isLoggedIn && (name === "customer_email")}
+                      className="input-field disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
                 ))}
@@ -106,19 +198,19 @@ export default function QuotePage() {
                 {items.map((item, idx) => (
                   <div key={idx} className="flex gap-3 items-start p-3 bg-gray-50 rounded-xl">
                     <div className="flex-1">
-                      <input
-                        type="text"
-                        placeholder="Product name or SKU (e.g., Zebra ZT411, ZD421)"
-                        value={item.product_id}
-                        onChange={(e) => updateItem(idx, "product_id", e.target.value)}
-                        className="input-field mb-2"
+                      <ProductAutocomplete
+                        value={item.product}
+                        onChange={(p) => setItemProduct(idx, p)}
+                        placeholder="Search for a product..."
+                        excludeIds={items.filter((_, i) => i !== idx).map((i) => i.product?.id).filter(Boolean) as string[]}
+                        excludeTitles={items.filter((_, i) => i !== idx).map((i) => i.product?.title).filter(Boolean) as string[]}
                       />
                       <input
                         type="text"
                         placeholder="Additional notes (color, config, etc.)"
                         value={item.notes}
-                        onChange={(e) => updateItem(idx, "notes", e.target.value)}
-                        className="input-field"
+                        onChange={(e) => setItemField(idx, "notes", e.target.value)}
+                        className="input-field mt-2"
                       />
                     </div>
                     <div className="w-20">
@@ -127,7 +219,7 @@ export default function QuotePage() {
                         type="number"
                         min="1"
                         value={item.quantity}
-                        onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 1)}
+                        onChange={(e) => setItemField(idx, "quantity", parseInt(e.target.value) || 1)}
                         className="input-field text-center"
                       />
                     </div>
@@ -157,9 +249,12 @@ export default function QuotePage() {
               />
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-base py-3.5">
+            <button type="submit" disabled={loading || !canSubmit} className="btn-primary w-full justify-center text-base py-3.5 disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? "Submitting..." : "Submit Quote Request"}
             </button>
+            {!canSubmit && formData.customer_name && formData.customer_email && (
+              <p className="text-xs text-red-500 text-center mt-2">Please select at least one product above.</p>
+            )}
 
             <p className="text-xs text-gray-400 text-center">
               By submitting, you agree to be contacted by our B2B team via email or phone.
