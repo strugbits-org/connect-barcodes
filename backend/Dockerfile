@@ -4,9 +4,9 @@ WORKDIR /app
 
 RUN apk add --no-cache python3 make g++
 
-COPY package.json ./
+COPY package.json package-lock.json .npmrc ./
 
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
@@ -17,7 +17,8 @@ RUN NODE_OPTIONS="--max-old-space-size=6144" npx medusa build
 RUN cp /app/medusa-config.js /app/.medusa/server/medusa-config.js
 
 WORKDIR /app/.medusa/server
-RUN npm install --no-audit --no-fund
+COPY .npmrc ./
+RUN npm install --no-audit --no-fund --maxsockets=5
 
 WORKDIR /app
 
