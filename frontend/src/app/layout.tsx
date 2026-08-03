@@ -1,3 +1,5 @@
+export const fetchCache = "force-no-store";
+
 import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "@/context/cart-context";
