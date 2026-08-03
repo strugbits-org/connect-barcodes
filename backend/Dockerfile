@@ -4,9 +4,10 @@ WORKDIR /app
 
 RUN apk add --no-cache python3 make g++
 
-COPY package.json .npmrc ./
+COPY package.json package-lock.json* .npmrc ./
 
-RUN npm install --no-audit --no-fund --maxsockets=3
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-audit --no-fund --prefer-offline
 
 COPY . .
 
@@ -19,7 +20,8 @@ RUN mkdir -p /app/.medusa/server/src && ln -s ../modules /app/.medusa/server/src
 
 WORKDIR /app/.medusa/server
 COPY .npmrc ./
-RUN npm install --no-audit --no-fund --maxsockets=3
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-audit --no-fund --prefer-offline
 
 WORKDIR /app
 
