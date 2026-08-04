@@ -17,7 +17,7 @@ export default function HeroSection() {
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-brand-navy via-brand-navy/95 to-brand-navy-light/80" />
 
-      <div className="relative max-w-7xl mx-auto px-4 py-20 md:py-28">
+      <div className="relative max-w-7xl mx-auto px-4 pt-8 pb-20 md:pt-10 md:pb-28">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           {/* Content */}
           <div className="animate-slide-up">
