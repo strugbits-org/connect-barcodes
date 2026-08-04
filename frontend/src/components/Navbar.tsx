@@ -2,23 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  ShoppingCart, Search, Phone, Mail, Menu, X, User, Tag, Package, ChevronDown
+  ShoppingCart, Phone, Mail, Menu, X, User, Tag, Package, ChevronDown
 } from "lucide-react";
 import { useCart } from "@/context/cart-context";
 import { cn } from "@/lib/utils";
 import { getCategories } from "@/lib/medusa";
+import SearchBox from "@/components/SearchBox";
 
 type NavCategory = { name: string; handle: string };
 
 export default function Navbar() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [categories, setCategories] = useState<NavCategory[]>([]);
   const { itemCount } = useCart();
-  const router = useRouter();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10);
@@ -33,10 +31,6 @@ export default function Navbar() {
     );
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -75,20 +69,7 @@ export default function Navbar() {
           </Link>
 
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for scanners, printers, POS systems..."
-                className="w-full bg-white/10 border border-white/20 text-white placeholder-white/50 rounded-lg px-4 py-2.5 pr-12 text-sm focus:outline-none focus:bg-white focus:text-gray-900 focus:placeholder-gray-400 transition-all duration-200"
-              />
-              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors">
-                <Search size={18} />
-              </button>
-            </div>
-          </form>
+          <SearchBox variant="navbar" />
 
           {/* Actions */}
           <div className="flex items-center gap-2">
